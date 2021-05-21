@@ -1,6 +1,6 @@
 ---
 kind: pipeline
-name: default
+name: commit
 type: kubernetes
 
 platform:
@@ -24,15 +24,16 @@ steps:
       cpu: 1000
       memory: 1Gi
   when:
+    branch:
+    - master
     event:
     - push
-    - tag
 
 - name: push_quay_tag
   pull: if-not-exists
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   commands:
-    - docker login -u="ukhomeofficedigital+alpine" -p=$${DOCKER_TOKEN} quay.io
+    - docker login -u="ukhomeofficedigital+dsa_shared_services" -p=$${DOCKER_TOKEN} quay.io
     - docker tag alpine:$${DRONE_COMMIT_SHA} quay.io/ukhomeofficedigital/dsa-alpine:latest
     - docker tag alpine:$${DRONE_COMMIT_SHA} quay.io/ukhomeofficedigital/dsa-alpine:$${DRONE_TAG}
     - docker push quay.io/ukhomeofficedigital/dsa-alpine:latest
@@ -42,8 +43,55 @@ steps:
       from_secret: DOCKER_TOKEN
   resources: *minimal
   when:
+    branch:
+    - master
     event:
-    - tag
+    - push
+
+services:
+- name: docker
+  image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
+  resources: *minimal
+
+---
+kind: pipeline
+name: cron
+type: kubernetes
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: build
+  pull: if-not-exists
+  image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
+  commands:
+  # wait for docker service to be up before running docker build
+  - n=0; while [ "$n" -lt 60 ] && ! docker stats --no-stream; do n=$(( n + 1 )); sleep 1; done
+  - if ! docker stats --no-stream; then echo "Docker appears not to be running"; exit 1; fi
+  - docker build -t alpine:$${DRONE_COMMIT_SHA} . --no-cache
+  resources: &minimal
+    requests:
+      cpu: 500
+      memory: 512Mi
+    limits:
+      cpu: 1000
+      memory: 1Gi
+
+- name: push_quay_tag
+  pull: if-not-exists
+  image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
+  commands:
+    - docker login -u="ukhomeofficedigital+dsa_shared_services" -p=$${DOCKER_TOKEN} quay.io
+    - docker tag alpine:$${DRONE_COMMIT_SHA} quay.io/ukhomeofficedigital/dsa-alpine:latest
+    - docker tag alpine:$${DRONE_COMMIT_SHA} quay.io/ukhomeofficedigital/dsa-alpine:$${DRONE_TAG}
+    - docker push quay.io/ukhomeofficedigital/dsa-alpine:latest
+    - docker push quay.io/ukhomeofficedigital/dsa-alpine:$${DRONE_TAG}
+  environment:
+    DOCKER_TOKEN:
+      from_secret: DOCKER_TOKEN
+  resources: *minimal
 
 services:
 - name: docker
@@ -52,7 +100,8 @@ services:
 
 trigger:
   event:
-  - push
-  - tag
+  - cron
+  cron:
+  - hourly-update-build
 
 ...
