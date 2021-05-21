@@ -70,7 +70,7 @@ steps:
   # wait for docker service to be up before running docker build
   - n=0; while [ "$n" -lt 60 ] && ! docker stats --no-stream; do n=$(( n + 1 )); sleep 1; done
   - if ! docker stats --no-stream; then echo "Docker appears not to be running"; exit 1; fi
-  - docker build -t alpine:$${DRONE_COMMIT_SHA} . --no-cache
+  - docker build -t quay.io/ukhomeofficedigital/dsa-alpine:$${DRONE_COMMIT_SHA} . --no-cache
   resources: &minimal
     requests:
       cpu: 500
