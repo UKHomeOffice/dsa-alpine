@@ -8,14 +8,13 @@ platform:
   arch: amd64
 
 steps:
-- name: build
+- name: docker-build
   pull: if-not-exists
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   commands:
   # wait for docker service to be up before running docker build
   - n=0; while [ "$n" -lt 60 ] && ! docker stats --no-stream; do n=$(( n + 1 )); sleep 1; done
-  - if ! docker stats --no-stream; then echo "Docker appears not to be running"; exit 1; fi
-  - docker build -t quay.io/ukhomeofficedigital/dsa-alpine:$${DRONE_COMMIT_SHA} . --no-cache
+  - docker build -t quay.io/ukhomeofficedigital/dsa-alpine:$${DRONE_COMMIT_SHA} .
   resources: &minimal
     requests:
       cpu: 500
@@ -29,7 +28,7 @@ steps:
     event:
     - push
 
-- name: push
+- name: docker-push
   pull: if-not-exists
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   commands:
@@ -54,8 +53,6 @@ services:
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   resources: *minimal
 
-...
-
 ---
 kind: pipeline
 name: cron
@@ -66,7 +63,7 @@ platform:
   arch: amd64
 
 steps:
-- name: build
+- name: docker-build
   pull: if-not-exists
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   commands:
@@ -82,7 +79,7 @@ steps:
       cpu: 1000
       memory: 1Gi
 
-- name: push
+- name: docker-push
   pull: if-not-exists
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   commands:
@@ -107,5 +104,4 @@ trigger:
   - cron
   cron:
   - hourly-update-build
-
 ...
