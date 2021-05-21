@@ -96,17 +96,12 @@ steps:
     DOCKER_TOKEN:
       from_secret: DOCKER_TOKEN
   resources: *minimal
-  when:
-    branch:
-    - master
-    event:
-    - push
 
 services:
 - name: docker
   image: 340268328991.dkr.ecr.eu-west-2.amazonaws.com/acp/dind
   resources: *minimal
-  
+
 trigger:
   event:
   - cron
